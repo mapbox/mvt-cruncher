@@ -1,0 +1,20 @@
+###
+
+local BOOST_DIR = "/opt/boost_1_64" ;
+local VARIANT_DIR = "/home/artem/projects/variant" ;
+local GEOMETRYHPP_DIR = "/home/artem/projects/geometry.hpp" ;
+
+local PROTOZERO_DIR = "/home/artem/projects/protozero" ;
+local VTZERO_DIR = "/home/artem/projects/vtzero" ;
+
+exe vt2svg
+    :
+    vt2svg.cpp
+    :
+    <cxxflags>"-std=c++14"
+    <include>$(VARIANT_DIR)/include
+    <include>$(GEOMETRYHPP_DIR)/include
+    <include>$(PROTOZERO_DIR)/include
+    <include>$(VTZERO_DIR)/include
+    <include>$(BOOST_DIR)/include
+    ;
