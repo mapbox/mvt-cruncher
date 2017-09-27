@@ -106,18 +106,13 @@ int main(int argc, char** argv)
     vtzero::data_view view(buf.data(), buf.size());
     vtzero::vector_tile tile{view};
 
-    std::string svg_filename = std::string(argv[1]) + ".svg";
-    std::ofstream svg(svg_filename.c_str());
-    //-2048 -2048 4096 4096
-    boost::geometry::svg_mapper<mapbox::geometry::point<double>> mapper(svg, 64, 64, "width=\"1024\" height=\"1024\" viewBox=\"-4099 -4096 8192 8192\"");
     std::size_t count = 0;
-    boost::optional<mapbox::geometry::box<double>> bbox;
+    //boost::geometry::validity_failure_type failure;
+    std::string message;
     for (auto const& layer : tile)
     {
-        std::cerr << "LAYER:" << std::string(layer.name()) << std::endl;
         for (auto const feature : layer)
         {
-            //std::cerr << "    GEOM_TYPE:" << vtzero::geom_type_name(feature.type()) << std::endl;
             switch (feature.type())
             {
             case vtzero::GeomType::POINT:
@@ -125,12 +120,13 @@ int main(int argc, char** argv)
                 mapbox::geometry::multi_point<double> mpoint;
                 point_processor proc_point(mpoint);
                 vtzero::decode_point_geometry(feature.geometry(), false, proc_point);
-                mapbox::geometry::box<double> b{{0,0}, {0,0}};
-                boost::geometry::envelope(mpoint, b);
-                if (!bbox) bbox = b;
-                else expand_to_include(*bbox, b);
-                mapper.add(mpoint);
-                mapper.map(mpoint,"fill-opacity:1.0;fill:orange;stroke:red;stroke-width:0.5", 3.0);
+                bool valid = boost::geometry::is_valid(mpoint, message);
+                bool simple = boost::geometry::is_simple(mpoint);
+                if (!valid)
+                {
+                    std::cerr << boost::geometry::wkt(mpoint) << std::endl;
+                    std::cerr << "Invalid geometry ^:" <<  message << std::endl;
+                }
                 ++count;
                 break;
             }
@@ -139,12 +135,14 @@ int main(int argc, char** argv)
                 mapbox::geometry::multi_line_string<double> mline;
                 linestring_processor proc_line(mline);
                 vtzero::decode_linestring_geometry(feature.geometry(), false, proc_line);
-                mapbox::geometry::box<double> b{{0,0}, {0,0}};
-                boost::geometry::envelope(mline, b);
-                if (!bbox) bbox = b;
-                else expand_to_include(*bbox, b);
-                mapper.add(mline);
-                mapper.map(mline, "stroke:orange;stroke-width:1.0;stroke-opacity:0.5");
+                bool valid = boost::geometry::is_valid(mline, message);
+                bool simple = boost::geometry::is_simple(mline);
+                if (!valid) //|| !simple)
+                {
+                    std::cerr << boost::geometry::wkt(mline) << std::endl;
+                    //throw std::runtime_error("Invalid  geometry ^:" + message);
+                    std::cerr << "Invalid geometry ^:" <<  message << std::endl;
+                }
                 ++count;
                 break;
             }
@@ -153,12 +151,14 @@ int main(int argc, char** argv)
                 mapbox::geometry::multi_polygon<double> mpoly;
                 polygon_processor proc_poly(mpoly);
                 vtzero::decode_polygon_geometry(feature.geometry(), false, proc_poly);
-                mapbox::geometry::box<double> b{{0,0}, {0,0}};
-                boost::geometry::envelope(mpoly, b);
-                if (!bbox) bbox = b;
-                else expand_to_include(*bbox, b);
-                mapper.add(mpoly);
-                mapper.map(mpoly, "stroke:green;stroke-width:0.5; fill-opacity:0.5;fill:lightgreen");
+                bool valid = boost::geometry::is_valid(mpoly, message);
+                bool simple = boost::geometry::is_simple(mpoly);
+                if (!valid)// || !simple)
+                {
+                    std::cerr << boost::geometry::wkt(mpoly) << std::endl;
+                    //throw std::runtime_error("Invalid  geometry ^:" + message);
+                    std::cerr << "Invalid geometry ^:" <<  message << std::endl;
+                }
                 ++count;
                 break;
             }
@@ -169,19 +169,5 @@ int main(int argc, char** argv)
         }
         std::cerr << "Num features:" << count << std::endl;
     }
-    mapbox::geometry::line_string<double> tile_outline{{0, 0},{0, 4096},{4096, 4096}, {4096,0}, {0, 0}};
-    mapper.add(tile_outline);
-    mapper.map(tile_outline,"stroke:red;stroke-width:1;stroke-dasharray:4,4;comp-op:color-burn");
-
-    mapbox::geometry::line_string<double> extent{
-        {bbox->min.x, bbox->min.y},
-        {bbox->min.x, bbox->max.y},
-        {bbox->max.x, bbox->max.y},
-        {bbox->max.x, bbox->min.y},
-        {bbox->min.x, bbox->min.y}};
-    mapper.add(extent);
-    mapper.map(extent,"stroke:blue;stroke-width:2;stroke-dasharray:10,10;comp-op:multiply");
-
-    std::cerr << bbox->min.x << "," << bbox->min.y << "," << bbox->max.x << "," << bbox->max.y << std::endl;
     return EXIT_SUCCESS;
 }
