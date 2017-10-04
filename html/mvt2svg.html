@@ -1,0 +1,59 @@
+<html>
+  <body>
+    <div style="border:0.5px solid navy;padding:10px;width:50%;height:400px" id="drop_zone">Drop MVT files here</div>
+    <output style="border:0.5px solid pink;padding 100px" id="list"></output>
+    <div id="svg-image" style="border:1px solid red; width:50%">SVG</div>
+    <script type="text/javascript" src="vt2svg.js"></script>
+    <script>
+  function handleFileSelect(evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+
+    var files = evt.dataTransfer.files; // FileList object.
+
+  // files is a FileList of File objects. List some properties.
+  var output = [];
+
+  to_svg = Module.cwrap(
+  'mvt_to_svg', 'string', ['number', 'number']
+  );
+  for (var i = 0, f; f = files[i]; i++) {
+
+      var reader = new FileReader();
+
+      reader.readAsArrayBuffer(f);
+      reader.onloadend = function(event)
+      {
+          var arrayBuffer = event.target.result;
+          var len = arrayBuffer.byteLength;
+          var dataPtr = Module._malloc(len);
+          var dataHeap = new Uint8Array(Module.HEAPU8.buffer, dataPtr, len);
+          dataHeap.set(new Uint8Array(arrayBuffer));
+          //alert(arrayBuffer.buffer);
+          var svg = to_svg(dataHeap.byteOffset, len);
+          var container = document.getElementById("drop_zone");
+          container.innerHTML = svg;
+          Module._free(dataHeap.byteOffset);
+      };
+      output.push('<li><strong>', escape(f.name), '</strong> (', f.type || 'n/a', ') - ',
+                  f.size, ' bytes, last modified: ',
+                  f.lastModifiedDate ? f.lastModifiedDate.toLocaleDateString() : 'n/a',
+                  '</li>');
+    }
+    document.getElementById('list').innerHTML = '<ul>' + output.join('') + '</ul>';
+  }
+
+  function handleDragOver(evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+    evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+  }
+
+  // Setup the dnd listeners.
+  var dropZone = document.getElementById('drop_zone');
+  dropZone.addEventListener('dragover', handleDragOver, false);
+  dropZone.addEventListener('drop', handleFileSelect, false);
+</script>
+  </body>
+
+</html>
