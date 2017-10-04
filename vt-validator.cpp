@@ -107,7 +107,10 @@ int main(int argc, char** argv)
     vtzero::vector_tile tile{view};
 
     std::size_t count = 0;
+    std::size_t fail_count = 0;
     //boost::geometry::validity_failure_type failure;
+    std::string red = "\033[0;31m";
+    std::string no_color = "\033[0m";
     std::string message;
     for (auto const& layer : tile)
     {
@@ -121,11 +124,12 @@ int main(int argc, char** argv)
                 point_processor proc_point(mpoint);
                 vtzero::decode_point_geometry(feature.geometry(), false, proc_point);
                 bool valid = boost::geometry::is_valid(mpoint, message);
-                bool simple = boost::geometry::is_simple(mpoint);
+                //bool simple = boost::geometry::is_simple(mpoint);
                 if (!valid)
                 {
                     std::cerr << boost::geometry::wkt(mpoint) << std::endl;
-                    std::cerr << "Invalid geometry ^:" <<  message << std::endl;
+                    std::cerr << red << "Invalid geometry ^:" <<  message << no_color << std::endl;
+                    ++fail_count;
                 }
                 ++count;
                 break;
@@ -136,14 +140,16 @@ int main(int argc, char** argv)
                 linestring_processor proc_line(mline);
                 vtzero::decode_linestring_geometry(feature.geometry(), false, proc_line);
                 bool valid = boost::geometry::is_valid(mline, message);
-                bool simple = boost::geometry::is_simple(mline);
+                //bool simple = boost::geometry::is_simple(mline);
                 if (!valid) //|| !simple)
                 {
                     std::cerr << boost::geometry::wkt(mline) << std::endl;
                     //throw std::runtime_error("Invalid  geometry ^:" + message);
-                    std::cerr << "Invalid geometry ^:" <<  message << std::endl;
+                    std::cerr << red << "Invalid geometry ^:" <<  message  << no_color << std::endl;
+                    ++fail_count;
                 }
                 ++count;
+
                 break;
             }
             case vtzero::GeomType::POLYGON:
@@ -152,12 +158,13 @@ int main(int argc, char** argv)
                 polygon_processor proc_poly(mpoly);
                 vtzero::decode_polygon_geometry(feature.geometry(), false, proc_poly);
                 bool valid = boost::geometry::is_valid(mpoly, message);
-                bool simple = boost::geometry::is_simple(mpoly);
+                //bool simple = boost::geometry::is_simple(mpoly);
                 if (!valid)// || !simple)
                 {
                     std::cerr << boost::geometry::wkt(mpoly) << std::endl;
                     //throw std::runtime_error("Invalid  geometry ^:" + message);
-                    std::cerr << "Invalid geometry ^:" <<  message << std::endl;
+                    std::cerr << red << "Invalid geometry ^:" <<  message << no_color << std::endl;
+                    ++fail_count;
                 }
                 ++count;
                 break;
@@ -167,7 +174,8 @@ int main(int argc, char** argv)
                 break;
             }
         }
-        std::cerr << "Num features:" << count << std::endl;
+
     }
+    std::cerr << "Processed " << count << " features invalid geometries:" << fail_count << std::endl;
     return EXIT_SUCCESS;
 }
