@@ -1,6 +1,6 @@
 ## Web browser based 'drag-n-drop' MVT to SVG converter
 
-<a href="https://github.com/mapbox/mvt-cruncher" class="btn">https://mapbox.github.io/mvt-cruncher/html/mvt2svg.html</a>
+<a href="https://mapbox.github.io/mvt-cruncher/html/mvt2svg.html" class="btn">DEMO</a>
 
 ### Requirements
 
