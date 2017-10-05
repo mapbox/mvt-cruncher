@@ -94,89 +94,97 @@ struct polygon_processor
 EMSCRIPTEN_KEEPALIVE
 std::string  mvt_to_svg(std::string const& str)
 {
-    vtzero::data_view view(str.data(), str.length());
-    vtzero::vector_tile tile{view};
-
-    std::array<std::string, 4> four_colors = {{"red", "blue", "green", "yellow"}};
-    std::size_t count = 0;
-
     std::ostringstream output;
+    try
     {
-        boost::geometry::svg_mapper<mapbox::geometry::point<double>> mapper(
-            output,
-            2048, 2048,
-            "width=\"1024\" height=\"1024\" viewBox=\"0 0 4096 4096\"");
-        // add tile boundary
-        mapbox::geometry::line_string<double> tile_outline{{0, 0},{0, 4096},{4096, 4096}, {4096,0}, {0, 0}};
-        mapper.add(tile_outline);
-        mapper.map(tile_outline,"stroke:blue;stroke-width:1;stroke-dasharray:4,4;comp-op:multiply");
+        vtzero::data_view view(str.data(), str.length());
+        vtzero::vector_tile tile{view};
 
-        boost::optional<mapbox::geometry::box<double>> bbox;
-        for (auto const& layer : tile)
+        std::array<std::string, 4> four_colors = {{"red", "blue", "green", "yellow"}};
+        std::size_t count = 0;
         {
-            for (auto const feature : layer)
+            boost::geometry::svg_mapper<mapbox::geometry::point<double>> mapper(
+                output,
+                2048, 2048,
+                "width=\"1024\" height=\"1024\" viewBox=\"0 0 4096 4096\"");
+            // add tile boundary
+            mapbox::geometry::line_string<double> tile_outline{{0, 0},{0, 4096},{4096, 4096}, {4096,0}, {0, 0}};
+            mapper.add(tile_outline);
+            mapper.map(tile_outline,"stroke:blue;stroke-width:1;stroke-dasharray:4,4;comp-op:multiply");
+
+            boost::optional<mapbox::geometry::box<double>> bbox;
+            for (auto const& layer : tile)
             {
-                switch (feature.type())
+                for (auto const feature : layer)
                 {
-                case vtzero::GeomType::POINT:
-                {
-                    mapbox::geometry::multi_point<double> mpoint;
-                    point_processor proc_point(mpoint);
-                    vtzero::decode_point_geometry(feature.geometry(), false, proc_point);
-                    mapbox::geometry::box<double> b{{0,0}, {0,0}};
-                    boost::geometry::envelope(mpoint, b);
-                    if (!bbox) bbox = b;
-                    else expand_to_include(*bbox, b);
-                    mapper.add(mpoint);
-                    mapper.map(mpoint,"fill-opacity:1.0;fill:orange;stroke:red;stroke-width:0.5", 3.0);
-                    ++count;
-                    break;
-                }
-                case vtzero::GeomType::LINESTRING:
-                {
-                    mapbox::geometry::multi_line_string<double> mline;
-                    linestring_processor proc_line(mline);
-                    vtzero::decode_linestring_geometry(feature.geometry(), false, proc_line);
-                    mapbox::geometry::box<double> b{{0,0}, {0,0}};
-                    boost::geometry::envelope(mline, b);
-                    if (!bbox) bbox = b;
-                    else expand_to_include(*bbox, b);
-                    mapper.add(mline);
-                    mapper.map(mline, "stroke:orange;stroke-width:2.0;stroke-opacity:1;comp-op:color-dodge");
-                    ++count;
-                    break;
-                }
-                case vtzero::GeomType::POLYGON:
-                {
-                    mapbox::geometry::multi_polygon<double> mpoly;
-                    polygon_processor proc_poly(mpoly);
-                    vtzero::decode_polygon_geometry(feature.geometry(), false, proc_poly);
-                    mapbox::geometry::box<double> b{{0,0}, {0,0}};
-                    boost::geometry::envelope(mpoly, b);
-                    if (!bbox) bbox = b;
-                    else expand_to_include(*bbox, b);
-                    mapper.add(mpoly);
-                    std::string style = "stroke:blue;stroke-width:1; fill-opacity:0.3;fill:" + four_colors[count % four_colors.size()];
-                    mapper.map(mpoly, style);
-                    ++count;
-                    break;
-                }
-                default:
-                    break;
+                    switch (feature.type())
+                    {
+                    case vtzero::GeomType::POINT:
+                    {
+                        mapbox::geometry::multi_point<double> mpoint;
+                        point_processor proc_point(mpoint);
+                        vtzero::decode_point_geometry(feature.geometry(), false, proc_point);
+                        mapbox::geometry::box<double> b{{0,0}, {0,0}};
+                        boost::geometry::envelope(mpoint, b);
+                        if (!bbox) bbox = b;
+                        else expand_to_include(*bbox, b);
+                        mapper.add(mpoint);
+                        mapper.map(mpoint,"fill-opacity:1.0;fill:orange;stroke:red;stroke-width:0.5", 3.0);
+                        ++count;
+                        break;
+                    }
+                    case vtzero::GeomType::LINESTRING:
+                    {
+                        mapbox::geometry::multi_line_string<double> mline;
+                        linestring_processor proc_line(mline);
+                        vtzero::decode_linestring_geometry(feature.geometry(), false, proc_line);
+                        mapbox::geometry::box<double> b{{0,0}, {0,0}};
+                        boost::geometry::envelope(mline, b);
+                        if (!bbox) bbox = b;
+                        else expand_to_include(*bbox, b);
+                        mapper.add(mline);
+                        mapper.map(mline, "stroke:orange;stroke-width:2.0;stroke-opacity:1;comp-op:color-dodge");
+                        ++count;
+                        break;
+                    }
+                    case vtzero::GeomType::POLYGON:
+                    {
+                        mapbox::geometry::multi_polygon<double> mpoly;
+                        polygon_processor proc_poly(mpoly);
+                        vtzero::decode_polygon_geometry(feature.geometry(), false, proc_poly);
+                        mapbox::geometry::box<double> b{{0,0}, {0,0}};
+                        boost::geometry::envelope(mpoly, b);
+                        if (!bbox) bbox = b;
+                        else expand_to_include(*bbox, b);
+                        mapper.add(mpoly);
+                        std::string style = "stroke:blue;stroke-width:1; fill-opacity:0.3;fill:" + four_colors[count % four_colors.size()];
+                        mapper.map(mpoly, style);
+                        ++count;
+                        break;
+                    }
+                    default:
+                        break;
+                    }
                 }
             }
+            mapbox::geometry::line_string<double> extent{
+                {bbox->min.x, bbox->min.y},
+                {bbox->min.x, bbox->max.y},
+                {bbox->max.x, bbox->max.y},
+                {bbox->max.x, bbox->min.y},
+                {bbox->min.x, bbox->min.y}};
+            std::cerr << bbox->min.x << "," << bbox->min.y << "," << bbox->max.x << "," << bbox->max.y << std::endl;
+            std::cerr << "Processed " << count << " features" << std::endl;
         }
-        mapbox::geometry::line_string<double> extent{
-            {bbox->min.x, bbox->min.y},
-            {bbox->min.x, bbox->max.y},
-            {bbox->max.x, bbox->max.y},
-            {bbox->max.x, bbox->min.y},
-            {bbox->min.x, bbox->min.y}};
-        std::cerr << bbox->min.x << "," << bbox->min.y << "," << bbox->max.x << "," << bbox->max.y << std::endl;
-        std::cerr << "Processed " << count << " features" << std::endl;
+    }
+    catch (std::exception const& ex)
+    {
+        std::cerr << ex.what() << std::endl;
+        return "FAIL";
     }
     output.flush();
     return output.str();
+
 }
 
 using namespace emscripten;

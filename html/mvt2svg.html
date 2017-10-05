@@ -49,7 +49,14 @@ function handleVectorTile(evt) {
       var arrayBuffer = event.target.result;
       var svg = Module.mvt_to_svg(arrayBuffer);
       var container = document.getElementById("drop_zone");
-      container.innerHTML = svg;
+      if (svg == "FAIL")
+      {
+        container.innerHTML = "<h1>FAIL</h1>";
+      }
+      else
+      {
+         container.innerHTML = svg;
+      }
     };
     output.push('<li><strong>', escape(f.name), '</strong> (', f.type || 'n/a', ') - ',
                 f.size, ' bytes, last modified: ',
