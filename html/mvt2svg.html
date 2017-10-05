@@ -3,12 +3,11 @@
     <h1>MVT to SVG converter</h1>
     <output style="border:0.5px solid pink;padding 100px;display:block" id="list"></output>
     <div style="border:0.5px solid navy;padding:0px;width:512px;height:512px; display:block; margin:auto" id="drop_zone">Drop Vector tiles here</div>
-    <script type="text/javascript" src="vt2svg.js"></script>
+    <script type="text/javascript" src="mvt2svg.js"></script>
     <script>
 function handleVectorTile(evt) {
   evt.stopPropagation();
   evt.preventDefault();
-
   var files = evt.dataTransfer.files; // FileList object.
 
   // files is a FileList of File objects. List some properties.

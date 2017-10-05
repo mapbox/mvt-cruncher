@@ -6,9 +6,9 @@ local GEOMETRYHPP_DIR = "/home/artem/projects/geometry.hpp" ;
 local PROTOZERO_DIR = "/home/artem/projects/protozero" ;
 local VTZERO_DIR = "/home/artem/projects/vtzero" ;
 
-exe vt2svg
+exe mvt2svg
     :
-    vt2svg.cpp
+    mvt_to_svg.cpp
     :
     <cxxflags>"-std=c++14 --bind"
     <linkflags>"-s WASM=1 --bind"

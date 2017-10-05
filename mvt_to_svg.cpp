@@ -92,19 +92,20 @@ struct polygon_processor
 };
 
 EMSCRIPTEN_KEEPALIVE
-//extern "C"
-std::string /*char const**/ mvt_to_svg(std::string const& str)//char const* buf, std::size_t size)
+std::string  mvt_to_svg(std::string const& str)
 {
     vtzero::data_view view(str.data(), str.length());
     vtzero::vector_tile tile{view};
 
     std::array<std::string, 4> four_colors = {{"red", "blue", "green", "yellow"}};
-    std::size_t count = 0, fail_count = 0;
+    std::size_t count = 0;
 
     std::ostringstream output;
     {
-        //-2048 -2048 4096 4096
-        boost::geometry::svg_mapper<mapbox::geometry::point<double>> mapper(output, 2048, 2048, "width=\"1024\" height=\"1024\" viewBox=\"0 0 4096 4096\"");
+        boost::geometry::svg_mapper<mapbox::geometry::point<double>> mapper(
+            output,
+            2048, 2048,
+            "width=\"1024\" height=\"1024\" viewBox=\"0 0 4096 4096\"");
         // add tile boundary
         mapbox::geometry::line_string<double> tile_outline{{0, 0},{0, 4096},{4096, 4096}, {4096,0}, {0, 0}};
         mapper.add(tile_outline);
@@ -113,10 +114,8 @@ std::string /*char const**/ mvt_to_svg(std::string const& str)//char const* buf,
         boost::optional<mapbox::geometry::box<double>> bbox;
         for (auto const& layer : tile)
         {
-            //std::cerr << "LAYER:" << std::string(layer.name()) << std::endl;
             for (auto const feature : layer)
             {
-                //std::cerr << "    GEOM_TYPE:" << vtzero::geom_type_name(feature.type()) << std::endl;
                 switch (feature.type())
                 {
                 case vtzero::GeomType::POINT:
@@ -130,7 +129,6 @@ std::string /*char const**/ mvt_to_svg(std::string const& str)//char const* buf,
                     else expand_to_include(*bbox, b);
                     mapper.add(mpoint);
                     mapper.map(mpoint,"fill-opacity:1.0;fill:orange;stroke:red;stroke-width:0.5", 3.0);
-                    //if (!boost::geometry::is_valid(mpoint) || !boost::geometry::is_simple(mpoint)) ++fail_count;
                     ++count;
                     break;
                 }
@@ -145,7 +143,6 @@ std::string /*char const**/ mvt_to_svg(std::string const& str)//char const* buf,
                     else expand_to_include(*bbox, b);
                     mapper.add(mline);
                     mapper.map(mline, "stroke:orange;stroke-width:2.0;stroke-opacity:1;comp-op:color-dodge");
-                    //if (!boost::geometry::is_valid(mline) || !boost::geometry::is_simple(mline)) ++fail_count;
                     ++count;
                     break;
                 }
@@ -161,7 +158,6 @@ std::string /*char const**/ mvt_to_svg(std::string const& str)//char const* buf,
                     mapper.add(mpoly);
                     std::string style = "stroke:blue;stroke-width:1; fill-opacity:0.3;fill:" + four_colors[count % four_colors.size()];
                     mapper.map(mpoly, style);
-                    //if (!boost::geometry::is_valid(mpoly) || !boost::geometry::is_simple(mpoly)) ++fail_count;
                     ++count;
                     break;
                 }
@@ -176,46 +172,14 @@ std::string /*char const**/ mvt_to_svg(std::string const& str)//char const* buf,
             {bbox->max.x, bbox->max.y},
             {bbox->max.x, bbox->min.y},
             {bbox->min.x, bbox->min.y}};
-        //mapper.add(extent);
-        //mapper.map(extent,"stroke:blue;stroke-width:2;stroke-dasharray:10,10;comp-op:multiply");
         std::cerr << bbox->min.x << "," << bbox->min.y << "," << bbox->max.x << "," << bbox->max.y << std::endl;
-        std::cerr << "Processed " << count << " features invalid and/or non-simple geometries:" << fail_count << std::endl;
+        std::cerr << "Processed " << count << " features" << std::endl;
     }
     output.flush();
-    return output.str();//.c_str();
+    return output.str();
 }
 
 using namespace emscripten;
 EMSCRIPTEN_BINDINGS(geometry) {
-    function("mvt_to_svg", &mvt_to_svg, allow_raw_pointers());
+    function("mvt_to_svg", &mvt_to_svg);
 }
-//}
-
-#if 0
-int main(int argc, char** argv)
-{
-    std::cerr << "Vector Tile to SVG converter" << std::endl;
-    if (argc != 2)
-    {
-        std::cerr << "Usage:" << argv[0] << " <path-to-vector-tile>" << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    char const* filename = argv[1];
-    std::ifstream file(filename);
-    if (!file)
-    {
-        std::cerr << "Failed to open:" << filename << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    std::vector<char> buf((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-
-    auto output = mvt_to_svg(buf.data(), buf.size());
-    //std::cerr << output.str() << std::endl;
-    std::string svg_filename = std::string(argv[1]) + ".svg";
-    std::ofstream svg(svg_filename.c_str());
-    svg.write(output.data(), output.size());
-    return EXIT_SUCCESS;
-}
-#endif
