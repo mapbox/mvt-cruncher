@@ -7,9 +7,9 @@
 #include <boost/optional/optional.hpp>
 // vtzero
 #include <vtzero/vector_tile.hpp>
-// emscripten
+
+//emscripten
 #include <emscripten.h>
-#include <emscripten/val.h>
 #include <emscripten/bind.h>
 
 template <typename T>
@@ -33,7 +33,7 @@ struct point_processor
 
     void points_point(vtzero::point const& point) const
     {
-        mpoint_.emplace_back(point.x, point.y);
+        mpoint_.emplace_back(point.x, 4096.0 - point.y);
     }
 
     void points_end() const
@@ -56,7 +56,7 @@ struct linestring_processor
 
     void linestring_point(vtzero::point const& point) const
     {
-        mline_.back().emplace_back(point.x, point.y);
+        mline_.back().emplace_back(point.x, 4096.0 - point.y);
     }
 
     void linestring_end() const noexcept
@@ -77,7 +77,7 @@ struct polygon_processor
 
     void ring_point(vtzero::point const& point)
     {
-        ring_.emplace_back(point.x, point.y);
+        ring_.emplace_back(point.x, 4096.0 - point.y);
     }
 
     void ring_end(bool is_outer)
@@ -91,24 +91,29 @@ struct polygon_processor
     mapbox::geometry::linear_ring<double> ring_;
 };
 
-//extern "C" {
 EMSCRIPTEN_KEEPALIVE
-extern "C" char const* mvt_to_svg(char const* buf, std::size_t size)
+//extern "C"
+std::string /*char const**/ mvt_to_svg(std::string const& str)//char const* buf, std::size_t size)
 {
-    vtzero::data_view view(buf, size);
+    vtzero::data_view view(str.data(), str.length());
     vtzero::vector_tile tile{view};
 
     std::array<std::string, 4> four_colors = {{"red", "blue", "green", "yellow"}};
+    std::size_t count = 0, fail_count = 0;
 
     std::ostringstream output;
     {
         //-2048 -2048 4096 4096
-        boost::geometry::svg_mapper<mapbox::geometry::point<double>> mapper(output, 64, 64, "width=\"1024\" height=\"1024\" viewBox=\"-4096 -4096 8192 8192\"");
-        std::size_t count = 0;
+        boost::geometry::svg_mapper<mapbox::geometry::point<double>> mapper(output, 2048, 2048, "width=\"1024\" height=\"1024\" viewBox=\"0 0 4096 4096\"");
+        // add tile boundary
+        mapbox::geometry::line_string<double> tile_outline{{0, 0},{0, 4096},{4096, 4096}, {4096,0}, {0, 0}};
+        mapper.add(tile_outline);
+        mapper.map(tile_outline,"stroke:blue;stroke-width:1;stroke-dasharray:4,4;comp-op:multiply");
+
         boost::optional<mapbox::geometry::box<double>> bbox;
         for (auto const& layer : tile)
         {
-            std::cerr << "LAYER:" << std::string(layer.name()) << std::endl;
+            //std::cerr << "LAYER:" << std::string(layer.name()) << std::endl;
             for (auto const feature : layer)
             {
                 //std::cerr << "    GEOM_TYPE:" << vtzero::geom_type_name(feature.type()) << std::endl;
@@ -125,6 +130,7 @@ extern "C" char const* mvt_to_svg(char const* buf, std::size_t size)
                     else expand_to_include(*bbox, b);
                     mapper.add(mpoint);
                     mapper.map(mpoint,"fill-opacity:1.0;fill:orange;stroke:red;stroke-width:0.5", 3.0);
+                    //if (!boost::geometry::is_valid(mpoint) || !boost::geometry::is_simple(mpoint)) ++fail_count;
                     ++count;
                     break;
                 }
@@ -139,6 +145,7 @@ extern "C" char const* mvt_to_svg(char const* buf, std::size_t size)
                     else expand_to_include(*bbox, b);
                     mapper.add(mline);
                     mapper.map(mline, "stroke:orange;stroke-width:2.0;stroke-opacity:1;comp-op:color-dodge");
+                    //if (!boost::geometry::is_valid(mline) || !boost::geometry::is_simple(mline)) ++fail_count;
                     ++count;
                     break;
                 }
@@ -154,32 +161,33 @@ extern "C" char const* mvt_to_svg(char const* buf, std::size_t size)
                     mapper.add(mpoly);
                     std::string style = "stroke:blue;stroke-width:1; fill-opacity:0.3;fill:" + four_colors[count % four_colors.size()];
                     mapper.map(mpoly, style);
+                    //if (!boost::geometry::is_valid(mpoly) || !boost::geometry::is_simple(mpoly)) ++fail_count;
                     ++count;
                     break;
                 }
                 default:
-                    std::cerr << "UNKNOWN GEOMETRY TYPE\n";
                     break;
                 }
             }
-            std::cerr << "Num features:" << count << std::endl;
         }
-        mapbox::geometry::line_string<double> tile_outline{{0, 0},{0, 4096},{4096, 4096}, {4096,0}, {0, 0}};
-        mapper.add(tile_outline);
-        mapper.map(tile_outline,"stroke:red;stroke-width:1;stroke-dasharray:4,4;comp-op:color-burn");
-
         mapbox::geometry::line_string<double> extent{
             {bbox->min.x, bbox->min.y},
             {bbox->min.x, bbox->max.y},
             {bbox->max.x, bbox->max.y},
             {bbox->max.x, bbox->min.y},
             {bbox->min.x, bbox->min.y}};
-        mapper.add(extent);
-        mapper.map(extent,"stroke:blue;stroke-width:2;stroke-dasharray:10,10;comp-op:multiply");
+        //mapper.add(extent);
+        //mapper.map(extent,"stroke:blue;stroke-width:2;stroke-dasharray:10,10;comp-op:multiply");
         std::cerr << bbox->min.x << "," << bbox->min.y << "," << bbox->max.x << "," << bbox->max.y << std::endl;
+        std::cerr << "Processed " << count << " features invalid and/or non-simple geometries:" << fail_count << std::endl;
     }
     output.flush();
-    return output.str().c_str();
+    return output.str();//.c_str();
+}
+
+using namespace emscripten;
+EMSCRIPTEN_BINDINGS(geometry) {
+    function("mvt_to_svg", &mvt_to_svg, allow_raw_pointers());
 }
 //}
 
@@ -194,7 +202,6 @@ int main(int argc, char** argv)
     }
 
     char const* filename = argv[1];
-    //emscripten_wget(filename , filename);
     std::ifstream file(filename);
     if (!file)
     {
