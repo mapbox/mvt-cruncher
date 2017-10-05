@@ -10,8 +10,8 @@ exe mvt2svg
     :
     mvt_to_svg.cpp
     :
-    <cxxflags>"-std=c++14 --bind"
-    <linkflags>"-s WASM=1 --bind"
+    <cxxflags>"-std=c++14 --bind -s DISABLE_EXCEPTION_CATCHING=0"
+    <linkflags>"-s WASM=1 --bind -s DISABLE_EXCEPTION_CATCHING=0"
     <include>include
     <include>$(VARIANT_DIR)/include
     <include>$(GEOMETRYHPP_DIR)/include
