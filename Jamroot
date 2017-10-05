@@ -1,4 +1,4 @@
-###
+### MVT to SVG converter
 
 local BOOST_DIR = "/opt/boost_1_64" ;
 local VARIANT_DIR = "/home/artem/projects/variant" ;
@@ -11,20 +11,8 @@ exe vt2svg
     :
     vt2svg.cpp
     :
-    <cxxflags>"-std=c++14"
-    <include>$(VARIANT_DIR)/include
-    <include>$(GEOMETRYHPP_DIR)/include
-    <include>$(SPATIAL_ALGORITHMS_DIR)/include
-    <include>$(PROTOZERO_DIR)/include
-    <include>$(VTZERO_DIR)/include
-    <include>$(BOOST_DIR)/include
-    ;
-
-exe vt-validator
-    :
-    vt-validator.cpp
-    :
-    <cxxflags>"-std=c++14"
+    <cxxflags>"-std=c++14 --bind"
+    <linkflags>"-s WASM=1 --bind"
     <include>$(VARIANT_DIR)/include
     <include>$(GEOMETRYHPP_DIR)/include
     <include>$(SPATIAL_ALGORITHMS_DIR)/include
