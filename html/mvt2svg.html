@@ -1,6 +1,6 @@
 <html>
   <body>
-    <h1>The future of vector tiles</h1>
+    <h1>MVT to SVG converter</h1>
     <output style="border:0.5px solid pink;padding 100px;display:block" id="list"></output>
     <div style="border:0.5px solid navy;padding:0px;width:512px;height:512px; display:block; margin:auto" id="drop_zone">Drop Vector tiles here</div>
     <script type="text/javascript" src="vt2svg.js"></script>
@@ -13,7 +13,6 @@ function handleVectorTile(evt) {
 
   // files is a FileList of File objects. List some properties.
   var output = [];
-  //to_svg = Module.cwrap('mvt_to_svg', 'string', ['number', 'number']);
 
   for (var i = 0, f; f = files[i]; i++)
   {
@@ -22,15 +21,9 @@ function handleVectorTile(evt) {
     reader.onloadend = function(event)
     {
       var arrayBuffer = event.target.result;
-      //var len = arrayBuffer.byteLength;
-      //var dataPtr = Module._malloc(len);
-      //var dataHeap = new Uint8Array(Module.HEAPU8.buffer, dataPtr, len);
-      //dataHeap.set(new Uint8Array(arrayBuffer));
       var svg = Module.mvt_to_svg(arrayBuffer);
-      //var svg = Module.mvt_to_svg(dataHeap.byteOffset, len);
       var container = document.getElementById("drop_zone");
       container.innerHTML = svg;
-      //Module._free(dataHeap.byteOffset);
     };
     output.push('<li><strong>', escape(f.name), '</strong> (', f.type || 'n/a', ') - ',
                 f.size, ' bytes, last modified: ',
