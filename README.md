@@ -12,4 +12,12 @@
 
 ### Building
 
+Edit `Jamroot` to match your setup and then :
+
 `b2 toolset=emscripten release`
+
+### Running
+
+* Copy `*.js` and `*.wasm` files into `html` directory
+* Start web server `busybox httpd -f -p 8000`
+* Open `http://localhost:8000/html/mvt2svg.html` in a browser
