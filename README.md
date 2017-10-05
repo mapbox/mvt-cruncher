@@ -1,5 +1,7 @@
 ## Web browser based 'drag-n-drop' MVT to SVG converter
 
+<a href="https://github.com/mapbox/mvt-cruncher" class="btn">https://mapbox.github.io/mvt-cruncher/html/mvt2svg.html</a>
+
 ### Requirements
 
 * emscripten SDK (https://kripken.github.io/emscripten-site/docs/getting_started/downloads.html)
