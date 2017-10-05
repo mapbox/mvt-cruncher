@@ -22,9 +22,16 @@
     <link rel="stylesheet" href="/mvt-cruncher/assets/css/style.css?v=f648eac4118f3508f756b8757b7c4b9b469c54f1">
   </head>
   <body>
-    <h1>MVT to SVG converter</h1>
-    <output style="border:0.5px solid pink;padding 100px;display:block" id="list"></output>
+     <section class="page-header">
+      <h1 class="project-name">mvt-cruncher</h1>
+      <h2 class="project-tagline">web browser based MVT to SVG converter  </h2>
+      
+        <a href="https://github.com/mapbox/mvt-cruncher" class="btn">View on GitHub</a>
+      
+      <output style="border:0.5px solid pink;padding 100px;display:block" id="list"></output>
     <div style="border:0.5px solid navy;padding:0px;width:512px;height:512px; display:block; margin:auto" id="drop_zone">Drop Vector tiles here</div>
+    </section>
+   
     <script type="text/javascript" src="mvt2svg.js"></script>
     <script>
 function handleVectorTile(evt) {
