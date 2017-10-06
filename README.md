@@ -18,7 +18,7 @@
 ### Building
 
 Edit `Jamroot` to match your setup and then :
-
+`source <path-to-emsdk_env.sh`
 `b2 toolset=emscripten release`
 
 ### Running
