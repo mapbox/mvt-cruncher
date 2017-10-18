@@ -4,92 +4,93 @@
 #include <mapbox/geometry/geometry.hpp>
 #include <mapbox/geometry/algorithms/detail/boost_adapters.hpp>
 #include <boost/geometry/geometry.hpp>
-#include <boost/optional/optional.hpp>
+#include <boost/iostreams/filtering_streambuf.hpp>
+#include <boost/iostreams/copy.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
 // vtzero
 #include <vtzero/vector_tile.hpp>
-
 //emscripten
 #include <emscripten.h>
 #include <emscripten/bind.h>
+// MVT tools
+#include "mvt_utils.hpp"
 
-template <typename T>
-void expand_to_include(mapbox::geometry::box<T> & bbox, mapbox::geometry::box<T> const& b)
+namespace {
+
+template <typename Mapper, typename Colors>
+struct geometry_to_svg
 {
-    if (b.min.x < bbox.min.x) bbox.min.x = b.min.x;
-    if (b.max.x > bbox.max.x) bbox.max.x = b.max.x;
-    if (b.min.y < bbox.min.y) bbox.min.y = b.min.y;
-    if (b.max.y > bbox.max.y) bbox.max.y = b.max.y;
+    using result_type = void;
+    geometry_to_svg(Mapper & mapper, Colors const& colors)
+        : mapper_(mapper),
+          colors_(colors) {}
+
+    template <typename T>
+    void operator() (mapbox::geometry::point<T> const& pt)
+    {
+        mapper_.add(pt);
+        mapper_.map(pt,"fill-opacity:1.0;fill:orange;stroke:red;stroke-width:0.5", 3.0);
+    }
+
+    template <typename T>
+    void operator() (mapbox::geometry::multi_point<T> const& mpoint)
+    {
+        mapper_.add(mpoint);
+        mapper_.map(mpoint,"fill-opacity:1.0;fill:orange;stroke:red;stroke-width:0.5", 3.0);
+    }
+
+    template <typename T>
+    void operator() (mapbox::geometry::line_string<T> const& line)
+    {
+        mapper_.add(line);
+        mapper_.map(line, "stroke:orange;stroke-width:2.0;stroke-opacity:1;comp-op:color-dodge");
+    }
+
+    template <typename T>
+    void operator() (mapbox::geometry::multi_line_string<T> const& mline)
+    {
+        mapper_.add(mline);
+        mapper_.map(mline, "stroke:orange;stroke-width:2.0;stroke-opacity:1;comp-op:color-dodge");
+    }
+
+    template <typename T>
+    void operator() (mapbox::geometry::polygon<T> const& poly)
+    {
+        mapper_.add(poly);
+        std::string style = "stroke:blue;stroke-width:1; fill-opacity:0.3;fill:" + colors_[count_++ % colors_.size()];
+        mapper_.map(poly, style);
+    }
+
+    template <typename T>
+    void operator() (mapbox::geometry::multi_polygon<T> const& mpoly)
+    {
+        mapper_.add(mpoly);
+        std::string style = "stroke:blue;stroke-width:1; fill-opacity:0.3;fill:" + colors_[count_++ % colors_.size()];
+        mapper_.map(mpoly, style);
+    }
+
+    template <typename T>
+    void operator() (T const& ) {}
+
+    std::size_t count() const { return count_; }
+    Mapper & mapper_;
+    Colors const& colors_;
+    std::size_t count_ = 0;
+};
+
 }
 
-struct point_processor
+#if 0
+std::string decompress(std::string const& str)
 {
-    point_processor(mapbox::geometry::multi_point<double> & mpoint)
-        : mpoint_(mpoint) {}
-
-    void points_begin(uint32_t count) const
-    {
-        if (count > 1) mpoint_.reserve(count);
-    }
-
-    void points_point(vtzero::point const& point) const
-    {
-        mpoint_.emplace_back(point.x, 4096.0 - point.y);
-    }
-
-    void points_end() const
-    {
-        //
-    }
-    mapbox::geometry::multi_point<double> & mpoint_;
-};
-
-struct linestring_processor
-{
-    linestring_processor(mapbox::geometry::multi_line_string<double> & mline)
-        : mline_(mline) {}
-
-    void linestring_begin (std::uint32_t count)
-    {
-        mline_.emplace_back();
-        mline_.back().reserve(count);
-    }
-
-    void linestring_point(vtzero::point const& point) const
-    {
-        mline_.back().emplace_back(point.x, 4096.0 - point.y);
-    }
-
-    void linestring_end() const noexcept
-    {
-    }
-    mapbox::geometry::multi_line_string<double> & mline_;
-};
-
-struct polygon_processor
-{
-    polygon_processor(mapbox::geometry::multi_polygon<double> & mpoly)
-        : mpoly_(mpoly) {}
-
-    void ring_begin(std::uint32_t count)
-    {
-        ring_.reserve(count);
-    }
-
-    void ring_point(vtzero::point const& point)
-    {
-        ring_.emplace_back(point.x, 4096.0 - point.y);
-    }
-
-    void ring_end(bool is_outer)
-    {
-        if (is_outer) mpoly_.emplace_back();
-        mpoly_.back().push_back(std::move(ring_));
-        ring_.clear();
-    }
-
-    mapbox::geometry::multi_polygon<double> & mpoly_;
-    mapbox::geometry::linear_ring<double> ring_;
-};
+    std::stringstream in(str), out;
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> inbuf;
+    inbuf.push(boost::iostreams::gzip_decompressor());
+    inbuf.push(in);
+    boost::iostreams::copy(inbuf, out);
+    return out.str();
+}
+#endif
 
 EMSCRIPTEN_KEEPALIVE
 std::string  mvt_to_svg(std::string const& str)
@@ -97,85 +98,29 @@ std::string  mvt_to_svg(std::string const& str)
     std::ostringstream output;
     try
     {
+        //std::string decomp = decompress(str);
         vtzero::data_view view(str.data(), str.length());
         vtzero::vector_tile tile{view};
-
         std::array<std::string, 4> four_colors = {{"red", "blue", "green", "yellow"}};
-        std::size_t count = 0;
+        using mapper_type = boost::geometry::svg_mapper<mapbox::geometry::point<double>>;
+        boost::geometry::svg_mapper<mapbox::geometry::point<double>> mapper(
+            output,
+            2048, 2048,
+            "width=\"1024\" height=\"1024\" viewBox=\"0 0 4096 4096\"");
+        // add tile boundary
+        mapbox::geometry::line_string<double> tile_outline{{0, 0}, {0, 4096}, {4096, 4096}, {4096,0}, {0, 0}};
+        mapper.add(tile_outline);
+        mapper.map(tile_outline,"stroke:blue;stroke-width:1;stroke-dasharray:4,4;comp-op:multiply");
+        geometry_to_svg<mapper_type, std::array<std::string, 4>> svg(mapper, four_colors);
+        while (auto layer = tile.next_layer())
         {
-            boost::geometry::svg_mapper<mapbox::geometry::point<double>> mapper(
-                output,
-                2048, 2048,
-                "width=\"1024\" height=\"1024\" viewBox=\"0 0 4096 4096\"");
-            // add tile boundary
-            mapbox::geometry::line_string<double> tile_outline{{0, 0},{0, 4096},{4096, 4096}, {4096,0}, {0, 0}};
-            mapper.add(tile_outline);
-            mapper.map(tile_outline,"stroke:blue;stroke-width:1;stroke-dasharray:4,4;comp-op:multiply");
-
-            boost::optional<mapbox::geometry::box<double>> bbox;
-            for (auto const& layer : tile)
+            while (auto feature = layer.next_feature())
             {
-                for (auto const feature : layer)
-                {
-                    switch (feature.type())
-                    {
-                    case vtzero::GeomType::POINT:
-                    {
-                        mapbox::geometry::multi_point<double> mpoint;
-                        point_processor proc_point(mpoint);
-                        vtzero::decode_point_geometry(feature.geometry(), false, proc_point);
-                        mapbox::geometry::box<double> b{{0,0}, {0,0}};
-                        boost::geometry::envelope(mpoint, b);
-                        if (!bbox) bbox = b;
-                        else expand_to_include(*bbox, b);
-                        mapper.add(mpoint);
-                        mapper.map(mpoint,"fill-opacity:1.0;fill:orange;stroke:red;stroke-width:0.5", 3.0);
-                        ++count;
-                        break;
-                    }
-                    case vtzero::GeomType::LINESTRING:
-                    {
-                        mapbox::geometry::multi_line_string<double> mline;
-                        linestring_processor proc_line(mline);
-                        vtzero::decode_linestring_geometry(feature.geometry(), false, proc_line);
-                        mapbox::geometry::box<double> b{{0,0}, {0,0}};
-                        boost::geometry::envelope(mline, b);
-                        if (!bbox) bbox = b;
-                        else expand_to_include(*bbox, b);
-                        mapper.add(mline);
-                        mapper.map(mline, "stroke:orange;stroke-width:2.0;stroke-opacity:1;comp-op:color-dodge");
-                        ++count;
-                        break;
-                    }
-                    case vtzero::GeomType::POLYGON:
-                    {
-                        mapbox::geometry::multi_polygon<double> mpoly;
-                        polygon_processor proc_poly(mpoly);
-                        vtzero::decode_polygon_geometry(feature.geometry(), false, proc_poly);
-                        mapbox::geometry::box<double> b{{0,0}, {0,0}};
-                        boost::geometry::envelope(mpoly, b);
-                        if (!bbox) bbox = b;
-                        else expand_to_include(*bbox, b);
-                        mapper.add(mpoly);
-                        std::string style = "stroke:blue;stroke-width:1; fill-opacity:0.3;fill:" + four_colors[count % four_colors.size()];
-                        mapper.map(mpoly, style);
-                        ++count;
-                        break;
-                    }
-                    default:
-                        break;
-                    }
-                }
+                auto geom = detail::make_geometry<double>(feature);
+                mapbox::util::apply_visitor(svg, geom);
             }
-            mapbox::geometry::line_string<double> extent{
-                {bbox->min.x, bbox->min.y},
-                {bbox->min.x, bbox->max.y},
-                {bbox->max.x, bbox->max.y},
-                {bbox->max.x, bbox->min.y},
-                {bbox->min.x, bbox->min.y}};
-            std::cerr << bbox->min.x << "," << bbox->min.y << "," << bbox->max.x << "," << bbox->max.y << std::endl;
-            std::cerr << "Processed " << count << " features" << std::endl;
         }
+        std::cerr << "Processed " << svg.count() << " features" << std::endl;
     }
     catch (std::exception const& ex)
     {
@@ -184,7 +129,6 @@ std::string  mvt_to_svg(std::string const& str)
     }
     output.flush();
     return output.str();
-
 }
 
 using namespace emscripten;

@@ -31,7 +31,10 @@
        <h2>Drop Vector tiles here</h2>
     </div>
     <script type="text/javascript" src="mvt2svg.js"></script>
+    <script type="text/javascript" src="pako.min.js"></script>
     <script>
+var pako = window.pako;
+
 function handleVectorTile(evt) {
   evt.stopPropagation();
   evt.preventDefault();
@@ -39,15 +42,24 @@ function handleVectorTile(evt) {
 
   // files is a FileList of File objects. List some properties.
   var output = [];
-
   for (var i = 0, f; f = files[i]; i++)
   {
     var reader = new FileReader();
     reader.readAsArrayBuffer(f);
     reader.onloadend = function(event)
     {
-      var arrayBuffer = event.target.result;
-      var svg = Module.mvt_to_svg(arrayBuffer);
+      var buf = event.target.result;
+      var str, bytes = new Uint8Array(buf);
+
+      if (bytes[0] == 0x1f && bytes[1] == 0x8b)
+      {
+        str = pako.inflate(buf);
+      }
+      else
+      {
+        str = buf;
+      }
+      var svg = Module.mvt_to_svg(str);
       var container = document.getElementById("drop_zone");
       if (svg == "FAIL")
       {
@@ -55,7 +67,7 @@ function handleVectorTile(evt) {
       }
       else
       {
-         container.innerHTML = svg;
+        container.innerHTML = svg;
       }
     };
     output.push('<li><strong>', escape(f.name), '</strong> (', f.type || 'n/a', ') - ',

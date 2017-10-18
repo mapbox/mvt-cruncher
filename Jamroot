@@ -5,6 +5,7 @@ local VARIANT_DIR = "/home/artem/projects/variant" ;
 local GEOMETRYHPP_DIR = "/home/artem/projects/geometry.hpp" ;
 local PROTOZERO_DIR = "/home/artem/projects/protozero" ;
 local VTZERO_DIR = "/home/artem/projects/vtzero" ;
+local SPATIAL_ALGORITHMS_DIR = "/home/artem/projects/spatial-algorithms" ;
 
 exe mvt2svg
     :
